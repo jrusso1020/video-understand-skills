@@ -2,6 +2,25 @@
 
 Claude Code skills for video understanding and transcription with intelligent multi-provider fallback.
 
+## Quick Start (5 minutes)
+
+```bash
+# 1. Install dependencies
+brew install ffmpeg yt-dlp    # macOS
+pip install openai
+
+# 2. Get free API key from https://openrouter.ai/keys
+
+# 3. Set API key
+export OPENROUTER_API_KEY="sk-or-v1-your-key-here"
+
+# 4. Install skill
+npx skills add jrusso1020/video-understand-skills -a claude-code -g
+
+# 5. Test it!
+python3 ~/.claude/skills/video-understand/scripts/process_video.py "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+```
+
 ## Features
 
 - **Full Video Understanding** (visual + audio) via Gemini or OpenRouter
@@ -10,6 +29,7 @@ Claude Code skills for video understanding and transcription with intelligent mu
 - **Model Selection** per provider with sensible defaults
 - **Robust Path Handling** for macOS special characters and unicode filenames
 - **Multiple Input Sources**: YouTube URLs, local files, and video URLs
+- **Setup Script** to verify dependencies and API keys
 
 ## Provider Hierarchy
 
@@ -148,6 +168,34 @@ Options:
   --list-models       List available models and exit
   --list-providers    List available providers as JSON and exit
 ```
+
+## Setup & Verification
+
+Run the setup script to check dependencies and API keys:
+
+```bash
+python3 skills/video-understand/scripts/setup.py
+```
+
+This will show:
+- ✓ What's installed and configured
+- ! What's missing with install instructions
+- → Links to get API keys
+
+For detailed setup instructions, see [setup-guide.md](skills/video-understand/references/setup-guide.md).
+
+## Getting API Keys
+
+| Provider | Free Tier | Get Key |
+|----------|-----------|---------|
+| **OpenRouter** | ✅ Yes | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| **Gemini** | ✅ Yes | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **Groq** | ✅ Yes | [console.groq.com/keys](https://console.groq.com/keys) |
+| **OpenAI** | ❌ Paid | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| **AssemblyAI** | ✅ Limited | [assemblyai.com/app](https://www.assemblyai.com/app) |
+| **Deepgram** | ✅ $200 credit | [console.deepgram.com](https://console.deepgram.com/) |
+
+**Recommended:** Start with OpenRouter (free, easy setup, full video understanding).
 
 ## License
 

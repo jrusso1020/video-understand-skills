@@ -88,11 +88,18 @@ python3 scripts/process_video.py --list-models
 
 | Task | Reference |
 |------|-----------|
+| **Setup & API keys** | [setup-guide.md](references/setup-guide.md) |
 | Use Gemini for video | [gemini.md](references/gemini.md) |
 | Use OpenRouter | [openrouter.md](references/openrouter.md) |
 | ASR providers | [asr-providers.md](references/asr-providers.md) |
 | Output JSON schema | [output-format.md](references/output-format.md) |
 | Video sources & downloading | [video-sources.md](references/video-sources.md) |
+
+## Verify Setup
+
+```bash
+python3 scripts/setup.py  # Check dependencies and API keys
+```
 
 ## Output Format
 
