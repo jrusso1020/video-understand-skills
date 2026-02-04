@@ -29,9 +29,9 @@ from check_providers import get_available_providers
 
 # === Default Models ===
 DEFAULT_MODELS = {
-    "gemini": "gemini-2.0-flash",
-    "vertex": "gemini-2.0-flash",
-    "openrouter": "google/gemini-3-flash-preview",
+    "gemini": "gemini-2.5-flash",      # Current production model
+    "vertex": "gemini-2.5-flash",      # Current production model
+    "openrouter": "google/gemini-3-flash-preview",  # Latest via OpenRouter
     "openai": "whisper-1",
     "groq": "whisper-large-v3-turbo",
     "assemblyai": "best",  # AssemblyAI auto-selects
@@ -41,12 +41,11 @@ DEFAULT_MODELS = {
 
 # === Available Models ===
 AVAILABLE_MODELS = {
-    "gemini": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
-    "vertex": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    "gemini": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"],
+    "vertex": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"],
     "openrouter": [
         "google/gemini-3-flash-preview",
         "google/gemini-3-pro-preview",
-        "google/gemini-2.0-flash-exp:free",
     ],
     "openai": ["whisper-1"],
     "groq": ["whisper-large-v3", "whisper-large-v3-turbo"],

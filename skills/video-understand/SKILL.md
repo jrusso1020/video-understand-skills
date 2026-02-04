@@ -34,8 +34,8 @@ Automatically selects the best available provider:
 
 | Priority | Provider | Capability | Env Var | Default Model |
 |----------|----------|------------|---------|---------------|
-| 1 | Gemini | Full video | `GEMINI_API_KEY` | gemini-2.0-flash |
-| 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` | gemini-2.0-flash |
+| 1 | Gemini | Full video | `GEMINI_API_KEY` | gemini-2.5-flash |
+| 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` | gemini-2.5-flash |
 | 3 | OpenRouter | Full video | `OPENROUTER_API_KEY` | google/gemini-3-flash-preview |
 | 4 | OpenAI | ASR only | `OPENAI_API_KEY` | whisper-1 |
 | 5 | AssemblyAI | ASR + analysis | `ASSEMBLYAI_API_KEY` | best |
@@ -77,9 +77,9 @@ python3 scripts/process_video.py --list-models
 - `google/gemini-3-pro-preview` - Higher quality
 
 **Gemini models:**
-- `gemini-2.0-flash` (default) - Fast, good quality
-- `gemini-1.5-pro` - Highest quality
-- `gemini-1.5-flash` - Fastest
+- `gemini-2.5-flash` (default) - Fast, current production
+- `gemini-2.5-pro` - Highest quality
+- `gemini-2.0-flash` - Legacy (deprecated March 2026)
 
 **Local Whisper models:**
 - `tiny`, `base` (default), `small`, `medium`, `large`, `large-v3`

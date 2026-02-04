@@ -17,9 +17,11 @@ Get API key: https://aistudio.google.com/apikey
 
 | Model | Best For |
 |-------|----------|
-| `gemini-2.0-flash` | Fast, good quality (recommended) |
-| `gemini-1.5-pro` | Highest quality, longer context |
-| `gemini-1.5-flash` | Fastest, good for simple tasks |
+| `gemini-2.5-flash` | Fast, current production (default) |
+| `gemini-2.5-pro` | Highest quality |
+| `gemini-2.5-flash` | Legacy (deprecated March 2026) |
+
+**Note:** Gemini 2.0 models are being deprecated. Use 2.5 models for production.
 
 ## YouTube URL Processing
 
@@ -29,7 +31,7 @@ Gemini can process YouTube URLs directly without downloading:
 import google.generativeai as genai
 
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-2.0-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 response = model.generate_content([
     "Transcribe this video with timestamps. Note any on-screen text.",
@@ -59,7 +61,7 @@ if video_file.state.name == "FAILED":
     raise RuntimeError("Processing failed")
 
 # Generate content
-model = genai.GenerativeModel("gemini-2.0-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 response = model.generate_content([
     "Analyze this video: describe the scenes, transcribe speech, note any text on screen.",
     video_file

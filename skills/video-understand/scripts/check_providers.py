@@ -76,7 +76,7 @@ def get_available_providers():
             "youtube_native": True,  # Can process YouTube URLs directly
             "local_files": True,
             "max_video_length": "1 hour",
-            "models": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
+            "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]
         }
         env_vars_used["gemini"] = gemini_key
 
@@ -89,7 +89,7 @@ def get_available_providers():
             "youtube_native": True,
             "local_files": True,
             "max_video_length": "1 hour",
-            "models": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+            "models": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
             "note": "Enterprise Google Cloud"
         }
         env_vars_used["vertex"] = "GOOGLE_APPLICATION_CREDENTIALS"
