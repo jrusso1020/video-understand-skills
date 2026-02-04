@@ -1,0 +1,24 @@
+{
+  "name": "video-understand-skills",
+  "version": "1.0.0",
+  "description": "Claude Code skills for video understanding and transcription with multi-provider support (Gemini, OpenRouter, Whisper, AssemblyAI, Deepgram)",
+  "keywords": [
+    "video",
+    "transcription",
+    "whisper",
+    "gemini",
+    "openrouter",
+    "youtube",
+    "asr",
+    "speech-to-text",
+    "video-understanding",
+    "claude-code",
+    "skills"
+  ],
+  "author": "James Russo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jamesrusso/video-understand-skills"
+  }
+}
