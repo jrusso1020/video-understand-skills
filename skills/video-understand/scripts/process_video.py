@@ -243,6 +243,100 @@ def convert_to_mp4(input_path: str, output_dir: str, verbose: bool = True) -> st
     return output_path
 
 
+def compress_video(input_path: str, output_dir: str, target_size_mb: int = 40, verbose: bool = True) -> str:
+    """
+    Compress video to fit within size limits.
+
+    Uses ffmpeg to reduce resolution and bitrate while maintaining quality.
+    Target size is set slightly below limit to account for base64 overhead.
+    """
+    current_size = get_file_size_mb(input_path)
+
+    if current_size <= target_size_mb:
+        return input_path
+
+    log(f"Compressing video ({current_size:.1f} MB → target {target_size_mb} MB)...", verbose)
+
+    output_path = os.path.join(output_dir, "compressed.mp4")
+
+    # Get video duration for bitrate calculation
+    duration_cmd = [
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        input_path
+    ]
+    result = subprocess.run(duration_cmd, capture_output=True, text=True)
+
+    try:
+        duration = float(result.stdout.strip())
+    except (ValueError, AttributeError):
+        duration = 120  # Default assumption
+
+    # Calculate target bitrate (in kbps)
+    # target_size_mb * 8 * 1024 / duration = kbps, with 90% for video, 10% for audio
+    target_total_bitrate = int((target_size_mb * 8 * 1024) / duration * 0.9)
+    video_bitrate = max(200, min(target_total_bitrate - 64, 2000))  # 200-2000 kbps for video
+    audio_bitrate = 64  # 64 kbps for audio
+
+    # Determine scale based on compression ratio needed
+    compression_ratio = current_size / target_size_mb
+    if compression_ratio > 10:
+        scale = "480:-2"  # Very aggressive - 480p
+    elif compression_ratio > 5:
+        scale = "640:-2"  # Aggressive - 640p
+    elif compression_ratio > 2:
+        scale = "854:-2"  # Moderate - 480p
+    else:
+        scale = "1280:-2"  # Light - 720p
+
+    cmd = [
+        "ffmpeg", "-i", input_path,
+        "-vf", f"scale={scale}",
+        "-c:v", "libx264",
+        "-b:v", f"{video_bitrate}k",
+        "-maxrate", f"{video_bitrate * 2}k",
+        "-bufsize", f"{video_bitrate * 2}k",
+        "-preset", "fast",
+        "-c:a", "aac",
+        "-b:a", f"{audio_bitrate}k",
+        "-y",
+        output_path
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        log(f"Compression failed: {result.stderr[:200]}", verbose)
+        return input_path
+
+    new_size = get_file_size_mb(output_path)
+    log(f"Compressed: {current_size:.1f} MB → {new_size:.1f} MB", verbose)
+
+    # If still too large, try again with more aggressive settings
+    if new_size > target_size_mb:
+        log("Still too large, applying more aggressive compression...", verbose)
+        output_path2 = os.path.join(output_dir, "compressed2.mp4")
+        cmd = [
+            "ffmpeg", "-i", output_path,
+            "-vf", "scale=480:-2",
+            "-c:v", "libx264",
+            "-crf", "32",
+            "-preset", "fast",
+            "-c:a", "aac",
+            "-b:a", "48k",
+            "-y",
+            output_path2
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            final_size = get_file_size_mb(output_path2)
+            log(f"Final size: {final_size:.1f} MB", verbose)
+            return output_path2
+
+    return output_path
+
+
 def extract_audio(video_path: str, output_dir: str, verbose: bool = True) -> str:
     """Extract audio from video using ffmpeg."""
     log("Extracting audio...", verbose)
@@ -365,28 +459,67 @@ def process_with_openrouter(video_path: str, prompt: str, model: str = None, ver
     mime_type = mime_types.get(ext, "video/mp4")
 
     log("Sending to OpenRouter...", verbose)
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{mime_type};base64,{video_b64}"
-                    }
-                }
-            ]
-        }]
-    )
 
-    return {
-        "provider": "openrouter",
-        "model": model_name,
-        "capability": "full_video",
-        "response": response.choices[0].message.content,
-    }
+    # Retry logic for transient errors
+    import time
+    max_retries = 3
+    last_error = None
+
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{video_b64}"
+                            }
+                        }
+                    ]
+                }]
+            )
+
+            # Validate response
+            if not response.choices:
+                raise RuntimeError("OpenRouter returned empty response. Video may be too large or unsupported.")
+
+            content = response.choices[0].message.content
+            if not content:
+                raise RuntimeError("OpenRouter returned empty content. Try a smaller video or different model.")
+
+            return {
+                "provider": "openrouter",
+                "model": model_name,
+                "capability": "full_video",
+                "response": content,
+            }
+
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+
+            # Don't retry for content/size errors
+            if "too large" in error_str or "size" in error_str:
+                raise RuntimeError(f"Video too large for OpenRouter ({size_mb:.1f} MB). Try compressing or use Gemini API directly.") from e
+
+            # Retry on transient errors (5xx, timeout, cloudflare)
+            if attempt < max_retries - 1 and ("5" in str(getattr(e, 'status_code', '')) or
+                                               "timeout" in error_str or
+                                               "temporarily" in error_str or
+                                               "cloudflare" in error_str or
+                                               "1105" in error_str):
+                wait_time = (attempt + 1) * 5  # 5, 10, 15 seconds
+                log(f"Transient error, retrying in {wait_time}s (attempt {attempt + 2}/{max_retries})...", verbose)
+                time.sleep(wait_time)
+                continue
+
+            raise
+
+    raise last_error
 
 
 def process_with_openai_whisper(audio_path: str, model: str = None, verbose: bool = True) -> dict:
@@ -700,16 +833,23 @@ def process_video(
                     result.update(process_with_gemini(video_path, prompt, model=model, is_url=False, verbose=verbose))
 
         elif provider == "openrouter":
+            max_size = FILE_SIZE_LIMITS.get("openrouter", 50)
+            # Target slightly below limit to account for base64 overhead (~33%)
+            target_size = int(max_size * 0.7)
+
             if is_local:
-                # Check if we need to convert format
                 with tempfile.TemporaryDirectory() as tmpdir:
+                    # Convert format if needed
                     video_path = convert_to_mp4(source, tmpdir, verbose=verbose)
+                    # Auto-compress if too large
+                    video_path = compress_video(video_path, tmpdir, target_size_mb=target_size, verbose=verbose)
                     result.update(process_with_openrouter(video_path, prompt, model=model, verbose=verbose))
             else:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    max_size = FILE_SIZE_LIMITS.get("openrouter")
                     video_path = download_video(source, tmpdir, max_size_mb=max_size, verbose=verbose)
                     video_path = convert_to_mp4(video_path, tmpdir, verbose=verbose)
+                    # Auto-compress if still too large after download
+                    video_path = compress_video(video_path, tmpdir, target_size_mb=target_size, verbose=verbose)
                     result.update(process_with_openrouter(video_path, prompt, model=model, verbose=verbose))
 
         elif provider == "vertex":
