@@ -1,91 +1,88 @@
 ---
 name: video-understand
 description: |
-  Video understanding and transcription with intelligent multi-provider fallback. Use when: (1) Transcribing video or audio content, (2) Understanding video content including visual elements and scenes, (3) Analyzing YouTube videos by URL, (4) Extracting information from local video files, (5) Getting timestamps, summaries, or answering questions about video content. Automatically selects the best available provider based on configured API keys - prefers full video understanding (Gemini/OpenRouter) over ASR-only providers.
+  Video understanding and transcription with intelligent multi-provider fallback. Use when: (1) Transcribing video or audio content, (2) Understanding video content including visual elements and scenes, (3) Analyzing YouTube videos by URL, (4) Extracting information from local video files, (5) Getting timestamps, summaries, or answering questions about video content. Automatically selects the best available provider based on configured API keys - prefers full video understanding (Gemini/OpenRouter) over ASR-only providers. Supports model selection per provider.
 ---
 
 # Video Understanding
 
-Multi-provider video understanding with automatic fallback based on available API keys.
+Multi-provider video understanding with automatic fallback and model selection.
 
 ## Quick Start
 
-1. Check available providers:
 ```bash
-python scripts/check_providers.py
-```
+# Check available providers
+python3 scripts/check_providers.py
 
-2. Process a video:
-```bash
-# YouTube URL (Gemini can process directly)
-python scripts/process_video.py "https://youtube.com/watch?v=..."
+# Process a video (auto-selects best provider)
+python3 scripts/process_video.py "https://youtube.com/watch?v=..."
+python3 scripts/process_video.py /path/to/video.mp4
 
-# Local file
-python scripts/process_video.py /path/to/video.mp4
+# Custom prompt
+python3 scripts/process_video.py video.mp4 -p "List all products shown with timestamps"
 
-# With specific provider
-python scripts/process_video.py --provider openai video.mp4
+# Use specific provider/model
+python3 scripts/process_video.py video.mp4 --provider openrouter -m google/gemini-3-pro-preview
+
+# List available models
+python3 scripts/process_video.py --list-models
 ```
 
 ## Provider Hierarchy
 
-The skill automatically selects the best available provider:
+Automatically selects the best available provider:
 
-| Priority | Provider | Capability | Env Var |
-|----------|----------|------------|---------|
-| 1 | Gemini | Full video (visual + audio) | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
-| 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` |
-| 3 | OpenRouter | Full video (via Gemini) | `OPENROUTER_API_KEY` |
-| 4 | OpenAI Whisper | ASR only | `OPENAI_API_KEY` |
-| 5 | AssemblyAI | ASR + speaker labels | `ASSEMBLYAI_API_KEY` |
-| 6 | Deepgram | ASR | `DEEPGRAM_API_KEY` |
-| 7 | Groq Whisper | ASR (fast) | `GROQ_API_KEY` |
-| 8 | Local Whisper | ASR (offline) | None (requires `whisper` CLI) |
+| Priority | Provider | Capability | Env Var | Default Model |
+|----------|----------|------------|---------|---------------|
+| 1 | Gemini | Full video | `GEMINI_API_KEY` | gemini-2.0-flash |
+| 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` | gemini-2.0-flash |
+| 3 | OpenRouter | Full video | `OPENROUTER_API_KEY` | google/gemini-3-flash-preview |
+| 4 | OpenAI | ASR only | `OPENAI_API_KEY` | whisper-1 |
+| 5 | AssemblyAI | ASR + analysis | `ASSEMBLYAI_API_KEY` | best |
+| 6 | Deepgram | ASR | `DEEPGRAM_API_KEY` | nova-2 |
+| 7 | Groq | ASR (fast) | `GROQ_API_KEY` | whisper-large-v3-turbo |
+| 8 | Local Whisper | ASR (offline) | None | base |
 
-**Full video providers** can analyze visual content, read on-screen text, describe scenes, and transcribe audio.
-**ASR providers** transcribe audio only - video must be converted to audio first.
+**Full video** = visual + audio analysis. **ASR** = audio transcription only.
 
-## Workflow
+## CLI Options
 
 ```
-Input (YouTube URL / Local File / URL)
-    │
-    ├─► Check providers (check_providers.py)
-    │
-    ├─► Full Video Provider Available?
-    │   ├─► YES: Send directly to Gemini/OpenRouter
-    │   │        └─► Return: transcript + visual analysis + timestamps
-    │   │
-    │   └─► NO: ASR Fallback
-    │            ├─► Download video if URL (yt-dlp)
-    │            ├─► Extract audio (ffmpeg)
-    │            └─► Transcribe with best ASR provider
-    │                 └─► Return: transcript + timestamps
-    │
-    └─► Structured JSON Output
+python3 scripts/process_video.py [OPTIONS] SOURCE
+
+Arguments:
+  SOURCE              YouTube URL, video URL, or local file path
+
+Options:
+  -p, --prompt TEXT   Custom prompt for video understanding
+  --provider NAME     Force specific provider
+  -m, --model NAME    Force specific model
+  --asr-only          Force ASR-only mode (skip visual analysis)
+  -o, --output FILE   Write JSON to file instead of stdout
+  -q, --quiet         Suppress progress messages
+  --list-models       Show available models per provider
+  --list-providers    Show available providers as JSON
 ```
 
-## Output Format
+## Model Selection
 
-All providers return consistent JSON. See [output-format.md](references/output-format.md) for full schema.
+Each provider supports multiple models. Use `--list-models` to see options:
 
-```json
-{
-  "provider": "gemini",
-  "capability": "full_video",
-  "source": {"type": "youtube", "url": "..."},
-  "transcript": [
-    {"start": 0.0, "end": 2.5, "text": "Hello and welcome"}
-  ],
-  "visual_analysis": {
-    "scenes": [...],
-    "on_screen_text": [...],
-    "key_moments": [...]
-  },
-  "summary": "...",
-  "metadata": {"duration_seconds": 120, "language": "en"}
-}
+```bash
+python3 scripts/process_video.py --list-models
 ```
+
+**OpenRouter models:**
+- `google/gemini-3-flash-preview` (default) - Fast, free tier
+- `google/gemini-3-pro-preview` - Higher quality
+
+**Gemini models:**
+- `gemini-2.0-flash` (default) - Fast, good quality
+- `gemini-1.5-pro` - Highest quality
+- `gemini-1.5-flash` - Fastest
+
+**Local Whisper models:**
+- `tiny`, `base` (default), `small`, `medium`, `large`, `large-v3`
 
 ## Quick Reference
 
@@ -93,42 +90,55 @@ All providers return consistent JSON. See [output-format.md](references/output-f
 |------|-----------|
 | Use Gemini for video | [gemini.md](references/gemini.md) |
 | Use OpenRouter | [openrouter.md](references/openrouter.md) |
-| ASR providers (Whisper, AssemblyAI, etc.) | [asr-providers.md](references/asr-providers.md) |
+| ASR providers | [asr-providers.md](references/asr-providers.md) |
 | Output JSON schema | [output-format.md](references/output-format.md) |
 | Video sources & downloading | [video-sources.md](references/video-sources.md) |
 
-## Common Tasks
+## Output Format
 
-### Transcribe YouTube Video
-```python
-# Gemini handles YouTube URLs natively
-from scripts.gemini_video import process_youtube
-result = process_youtube("https://youtube.com/watch?v=...", prompt="Transcribe this video")
+All providers return consistent JSON:
+
+```json
+{
+  "source": {
+    "type": "youtube|url|local",
+    "path": "...",
+    "duration_seconds": 120.5,
+    "size_mb": 15.2
+  },
+  "provider": "openrouter",
+  "model": "google/gemini-3-flash-preview",
+  "capability": "full_video",
+  "response": "...",
+  "transcript": [{"start": 0.0, "end": 2.5, "text": "..."}],
+  "text": "Full transcript..."
+}
 ```
 
-### Analyze Video Content
-```python
-# Ask questions about video content
-result = process_youtube(url, prompt="What products are shown? List with timestamps.")
-```
+## Features
 
-### ASR-Only Transcription
-```python
-# Force ASR provider when you only need transcript
-from scripts.process_video import process_video
-result = process_video("video.mp4", provider="openai", asr_only=True)
-```
+- **Automatic provider selection** based on available API keys
+- **Model selection** per provider with sensible defaults
+- **Robust path handling** for macOS special characters and unicode
+- **Progress output** (use `-q` for quiet mode)
+- **File size warnings** for API limits
+- **Auto-conversion** of video formats when needed
+- **YouTube URL support** (direct or via download)
 
 ## Requirements
 
 **For full video understanding:**
-- Gemini: `pip install google-generativeai`
-- OpenRouter: `pip install openai` (uses OpenAI-compatible API)
+```bash
+pip install google-generativeai  # Gemini
+pip install openai               # OpenRouter
+```
 
 **For ASR fallback:**
-- `yt-dlp` for downloading videos
-- `ffmpeg` for audio extraction
-- Provider SDK (`openai`, `assemblyai`, `deepgram-sdk`, etc.)
-
-**For local Whisper:**
-- `pip install openai-whisper` or Whisper.cpp
+```bash
+brew install yt-dlp ffmpeg       # Video tools
+pip install openai               # OpenAI Whisper
+pip install groq                 # Groq Whisper
+pip install assemblyai           # AssemblyAI
+pip install deepgram-sdk         # Deepgram
+pip install openai-whisper       # Local Whisper
+```
