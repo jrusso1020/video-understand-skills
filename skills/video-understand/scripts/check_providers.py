@@ -103,7 +103,7 @@ def get_available_providers():
             "audio": True,
             "youtube_native": False,  # Need to download first
             "local_files": True,
-            "models": ["google/gemini-2.0-flash-exp:free", "google/gemini-pro-1.5"],
+            "models": ["google/gemini-3-flash-preview", "google/gemini-3-pro-preview"],
             "note": "Routes to Gemini models; video must be base64 encoded"
         }
         env_vars_used["openrouter"] = "OPENROUTER_API_KEY"

@@ -15,9 +15,8 @@ Get API key: https://openrouter.ai/keys
 
 | Model | Capability | Notes |
 |-------|------------|-------|
-| `google/gemini-2.0-flash-exp:free` | Video + Audio | Free tier available |
-| `google/gemini-pro-1.5` | Video + Audio | Higher quality |
-| `google/gemini-flash-1.5` | Video + Audio | Faster |
+| `google/gemini-3-flash-preview` | Video + Audio | Fast, free tier available |
+| `google/gemini-3-pro-preview` | Video + Audio | Higher quality |
 
 ## Basic Usage
 
@@ -37,7 +36,7 @@ with open("video.mp4", "rb") as f:
     video_b64 = base64.standard_b64encode(f.read()).decode("utf-8")
 
 response = client.chat.completions.create(
-    model="google/gemini-2.0-flash-exp:free",
+    model="google/gemini-3-flash-preview",
     messages=[{
         "role": "user",
         "content": [
@@ -97,7 +96,7 @@ def download_for_openrouter(url: str) -> str:
 
 ```python
 # Use free tier for testing
-model = "google/gemini-2.0-flash-exp:free"
+model = "google/gemini-3-flash-preview"
 
 # For production, consider caching results
 import hashlib
