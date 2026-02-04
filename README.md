@@ -35,8 +35,8 @@ python3 ~/.claude/skills/video-understand/scripts/process_video.py "https://www.
 
 | Priority | Provider | Capability | Env Variable | Default Model |
 |----------|----------|------------|--------------|---------------|
-| 1 | Gemini | Full video | `GEMINI_API_KEY` | gemini-2.5-flash |
-| 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` | gemini-2.5-flash |
+| 1 | Gemini | Full video | `GEMINI_API_KEY` | gemini-3-flash-preview |
+| 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` | gemini-3-flash-preview |
 | 3 | OpenRouter | Full video | `OPENROUTER_API_KEY` | google/gemini-3-flash-preview |
 | 4 | OpenAI Whisper | ASR only | `OPENAI_API_KEY` | whisper-1 |
 | 5 | AssemblyAI | ASR + analysis | `ASSEMBLYAI_API_KEY` | best |

@@ -37,7 +37,7 @@ Gemini can process YouTube URLs without downloading:
 ```python
 import google.generativeai as genai
 
-model = genai.GenerativeModel("gemini-2.5-flash")
+model = genai.GenerativeModel("gemini-3-flash-preview")
 response = model.generate_content([
     "Transcribe this video",
     {"video_url": "https://www.youtube.com/watch?v=VIDEO_ID"}
