@@ -37,6 +37,7 @@ DEFAULT_MODELS = {
     "assemblyai": "best",  # AssemblyAI auto-selects
     "deepgram": "nova-2",
     "local": "base",
+    "ffmpeg": "scene",  # Frame extraction mode: scene detection
 }
 
 # === Available Models ===
@@ -52,6 +53,7 @@ AVAILABLE_MODELS = {
     "assemblyai": ["best", "nano"],
     "deepgram": ["nova-2", "nova", "enhanced", "base"],
     "local": ["tiny", "base", "small", "medium", "large", "large-v3"],
+    "ffmpeg": ["scene", "keyframe", "interval"],  # Frame extraction modes
 }
 
 # File size limits (in MB)
@@ -380,6 +382,250 @@ def get_video_info(path: str) -> dict:
         }
     except (json.JSONDecodeError, KeyError, ValueError):
         return {}
+
+
+def extract_frames(
+    video_path: str,
+    output_dir: str,
+    mode: str = "scene",
+    max_frames: int = 30,
+    interval_seconds: float = 5.0,
+    scene_threshold: float = 0.3,
+    verbose: bool = True
+) -> list:
+    """
+    Extract representative frames from a video using ffmpeg.
+
+    Args:
+        video_path: Path to the video file
+        output_dir: Directory to save extracted frames
+        mode: Extraction mode - "scene" (scene detection), "keyframe" (I-frames), "interval" (regular intervals)
+        max_frames: Maximum number of frames to extract
+        interval_seconds: Interval between frames for "interval" mode
+        scene_threshold: Scene change detection threshold (0-1, lower = more sensitive)
+        verbose: Print progress messages
+
+    Returns:
+        List of dicts with frame info: [{"path": "...", "timestamp": 0.0}, ...]
+    """
+    log(f"Extracting frames (mode: {mode})...", verbose)
+
+    # Get video duration for calculations
+    info = get_video_info(video_path)
+    duration = info.get("duration_seconds", 60)
+
+    frames_dir = os.path.join(output_dir, "frames")
+    os.makedirs(frames_dir, exist_ok=True)
+
+    if mode == "scene":
+        # Scene detection: extract frames when scene changes significantly
+        # First pass: detect scene changes and get timestamps
+        detect_cmd = [
+            "ffmpeg", "-i", video_path,
+            "-vf", f"select='gt(scene,{scene_threshold})',showinfo",
+            "-vsync", "vfr",
+            "-f", "null", "-"
+        ]
+
+        result = subprocess.run(detect_cmd, capture_output=True, text=True)
+
+        # Parse timestamps from showinfo output
+        timestamps = [0.0]  # Always include first frame
+        for line in result.stderr.split('\n'):
+            if 'pts_time:' in line:
+                try:
+                    pts_match = re.search(r'pts_time:(\d+\.?\d*)', line)
+                    if pts_match:
+                        ts = float(pts_match.group(1))
+                        # Avoid frames too close together (< 1 second apart)
+                        if not timestamps or ts - timestamps[-1] >= 1.0:
+                            timestamps.append(ts)
+                except (ValueError, AttributeError):
+                    pass
+
+        # If scene detection found too few frames, fall back to interval
+        if len(timestamps) < 5:
+            log(f"Scene detection found only {len(timestamps)} frames, adding interval samples...", verbose)
+            interval = duration / (max_frames + 1)
+            for i in range(1, max_frames + 1):
+                ts = i * interval
+                if ts < duration and ts not in timestamps:
+                    timestamps.append(ts)
+            timestamps = sorted(set(timestamps))
+
+        # Limit to max_frames
+        if len(timestamps) > max_frames:
+            # Keep evenly distributed frames
+            step = len(timestamps) / max_frames
+            timestamps = [timestamps[int(i * step)] for i in range(max_frames)]
+
+        # Extract frames at detected timestamps
+        frames = []
+        for i, ts in enumerate(timestamps[:max_frames]):
+            output_path = os.path.join(frames_dir, f"frame_{i:04d}.jpg")
+            cmd = [
+                "ffmpeg", "-ss", str(ts),
+                "-i", video_path,
+                "-vframes", "1",
+                "-q:v", "2",  # High quality JPEG
+                "-y",
+                output_path
+            ]
+            subprocess.run(cmd, capture_output=True)
+            if os.path.exists(output_path):
+                frames.append({"path": output_path, "timestamp": round(ts, 2)})
+
+    elif mode == "keyframe":
+        # Extract I-frames (keyframes) only - very fast
+        cmd = [
+            "ffmpeg", "-i", video_path,
+            "-vf", f"select='eq(pict_type,I)'",
+            "-vsync", "vfr",
+            "-q:v", "2",
+            "-frames:v", str(max_frames),
+            os.path.join(frames_dir, "frame_%04d.jpg")
+        ]
+
+        subprocess.run(cmd, capture_output=True)
+
+        # Get timestamps for extracted frames using ffprobe
+        frames = []
+        for f in sorted(os.listdir(frames_dir)):
+            if f.endswith('.jpg'):
+                frame_path = os.path.join(frames_dir, f)
+                frame_num = int(re.search(r'(\d+)', f).group(1)) - 1
+                # Estimate timestamp (keyframes are typically every 2-5 seconds)
+                estimated_ts = frame_num * (duration / max(len(os.listdir(frames_dir)), 1))
+                frames.append({"path": frame_path, "timestamp": round(estimated_ts, 2)})
+
+    elif mode == "interval":
+        # Extract frames at regular intervals
+        # Calculate interval to get approximately max_frames
+        actual_interval = max(interval_seconds, duration / max_frames)
+
+        cmd = [
+            "ffmpeg", "-i", video_path,
+            "-vf", f"fps=1/{actual_interval}",
+            "-q:v", "2",
+            "-frames:v", str(max_frames),
+            os.path.join(frames_dir, "frame_%04d.jpg")
+        ]
+
+        subprocess.run(cmd, capture_output=True)
+
+        frames = []
+        for i, f in enumerate(sorted(os.listdir(frames_dir))):
+            if f.endswith('.jpg'):
+                frame_path = os.path.join(frames_dir, f)
+                ts = i * actual_interval
+                frames.append({"path": frame_path, "timestamp": round(ts, 2)})
+
+    else:
+        raise ValueError(f"Unknown extraction mode: {mode}. Use 'scene', 'keyframe', or 'interval'.")
+
+    log(f"Extracted {len(frames)} frames", verbose)
+    return frames
+
+
+def check_whisper_available() -> bool:
+    """Check if local whisper is available."""
+    if shutil.which("whisper"):
+        return True
+    try:
+        import whisper
+        return True
+    except ImportError:
+        return False
+
+
+def process_with_ffmpeg(
+    video_path: str,
+    output_dir: str,
+    mode: str = "scene",
+    max_frames: int = 30,
+    whisper_model: str = "base",
+    verbose: bool = True
+) -> dict:
+    """
+    Process video using ffmpeg frame extraction + optional local whisper.
+
+    This is a completely free, offline approach:
+    1. Extract representative frames using ffmpeg
+    2. Optionally transcribe audio using local whisper (if available)
+    3. Return frame paths + transcript for vision model analysis
+
+    Args:
+        video_path: Path to the video file
+        output_dir: Directory for output files (frames will be saved here)
+        mode: Frame extraction mode (scene/keyframe/interval)
+        max_frames: Maximum number of frames to extract
+        whisper_model: Local whisper model to use for transcription
+        verbose: Print progress messages
+
+    Returns:
+        dict with frames, transcript, and metadata
+    """
+    has_whisper = check_whisper_available()
+    log(f"Processing with FFMPEG (mode: {mode}, whisper: {'yes' if has_whisper else 'no'})...", verbose)
+
+    # Extract frames
+    frames = extract_frames(
+        video_path,
+        output_dir,
+        mode=mode,
+        max_frames=max_frames,
+        verbose=verbose
+    )
+
+    # Build frame descriptions with timestamps
+    frame_info = []
+    for frame in frames:
+        ts = frame["timestamp"]
+        # Format timestamp as MM:SS
+        mins = int(ts // 60)
+        secs = int(ts % 60)
+        frame_info.append({
+            "path": frame["path"],
+            "timestamp": ts,
+            "timestamp_formatted": f"{mins:02d}:{secs:02d}"
+        })
+
+    result = {
+        "provider": "ffmpeg",
+        "model": mode,
+        "frames": frame_info,
+        "frame_count": len(frame_info),
+    }
+
+    # Try to transcribe audio if whisper is available
+    if has_whisper:
+        try:
+            audio_path = extract_audio(video_path, output_dir, verbose=verbose)
+            transcript_result = process_with_local_whisper(audio_path, model=whisper_model, verbose=verbose)
+            result.update({
+                "capability": "frames_with_transcript",
+                "transcript": transcript_result.get("transcript", []),
+                "text": transcript_result.get("text", ""),
+                "language": transcript_result.get("language"),
+                "note": "View the frame images to understand visual content. Transcript provides audio context."
+            })
+        except Exception as e:
+            log(f"Audio transcription failed: {e}", verbose)
+            result.update({
+                "capability": "frames_only",
+                "transcript": [],
+                "text": "",
+                "note": "View the frame images to understand visual content. Audio transcription failed."
+            })
+    else:
+        result.update({
+            "capability": "frames_only",
+            "transcript": [],
+            "text": "",
+            "note": "View the frame images to understand visual content. Install whisper for audio transcription: pip install openai-whisper"
+        })
+
+    return result
 
 
 # === Provider-specific processors ===
@@ -854,6 +1100,22 @@ def process_video(
 
         elif provider == "vertex":
             raise NotImplementedError("Vertex AI support coming soon. Use GEMINI_API_KEY instead.")
+
+        elif provider == "ffmpeg":
+            # Free offline approach: extract frames + transcribe with local whisper
+            # Frames are saved persistently for Claude to view
+            mode = model or DEFAULT_MODELS["ffmpeg"]
+
+            # Create persistent output directory for frames
+            frames_output_dir = os.path.join(os.path.dirname(source) if is_local else tempfile.gettempdir(), "video_frames")
+            os.makedirs(frames_output_dir, exist_ok=True)
+
+            if is_local:
+                result.update(process_with_ffmpeg(source, frames_output_dir, mode=mode, verbose=verbose))
+            else:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    video_path = download_video(source, tmpdir, verbose=verbose)
+                    result.update(process_with_ffmpeg(video_path, frames_output_dir, mode=mode, verbose=verbose))
 
     # === ASR-Only Providers ===
     else:

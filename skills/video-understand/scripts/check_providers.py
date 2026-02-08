@@ -183,6 +183,21 @@ def get_available_providers():
         }
         env_vars_used["local"] = None
 
+    # 9. FFMPEG Screenshots (completely free, offline)
+    # Requires ffmpeg; local whisper is optional for audio transcription
+    if check_command("ffmpeg"):
+        providers["video_understanding"].append("ffmpeg")
+        capabilities["ffmpeg"] = {
+            "visual": True,  # Via extracted frames
+            "audio": bool(local_whisper),  # Via local whisper if available
+            "youtube_native": False,
+            "local_files": True,
+            "models": ["scene", "keyframe", "interval"],
+            "note": "Free offline option - extracts frames for vision model analysis" +
+                    (" + audio transcription" if local_whisper else " (no audio - install whisper for transcription)")
+        }
+        env_vars_used["ffmpeg"] = None
+
     # Determine recommended provider
     recommended = None
     if providers["video_understanding"]:

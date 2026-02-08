@@ -172,6 +172,11 @@ def main():
         ok("Local Whisper (no API key needed)")
         configured_providers.append("Local Whisper")
 
+    # FFMPEG provider (completely free, no API key)
+    if check_command("ffmpeg"):
+        ok("FFMPEG frames (no API key needed - extracts screenshots + optional whisper)")
+        configured_providers.append("FFMPEG")
+
     if not configured_providers:
         error("No providers configured!")
         print()
@@ -204,7 +209,12 @@ def main():
 # Install system tools (macOS)
 brew install ffmpeg yt-dlp
 
-# Install Python package for OpenRouter (recommended)
+# === Option A: Free offline (no API key) ===
+# Just use ffmpeg for frame extraction + optional whisper for audio
+pip install openai-whisper  # Optional, for audio transcription
+
+# === Option B: API-based (better quality) ===
+# Install Python package for OpenRouter
 pip install openai
 
 # Get free API key

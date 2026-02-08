@@ -37,13 +37,14 @@ Automatically selects the best available provider:
 | 1 | Gemini | Full video | `GEMINI_API_KEY` | gemini-3-flash-preview |
 | 2 | Vertex AI | Full video | `GOOGLE_APPLICATION_CREDENTIALS` | gemini-3-flash-preview |
 | 3 | OpenRouter | Full video | `OPENROUTER_API_KEY` | google/gemini-3-flash-preview |
-| 4 | OpenAI | ASR only | `OPENAI_API_KEY` | whisper-1 |
-| 5 | AssemblyAI | ASR + analysis | `ASSEMBLYAI_API_KEY` | best |
-| 6 | Deepgram | ASR | `DEEPGRAM_API_KEY` | nova-2 |
-| 7 | Groq | ASR (fast) | `GROQ_API_KEY` | whisper-large-v3-turbo |
-| 8 | Local Whisper | ASR (offline) | None | base |
+| 4 | FFMPEG | Frames + ASR | None (requires ffmpeg + whisper) | scene |
+| 5 | OpenAI | ASR only | `OPENAI_API_KEY` | whisper-1 |
+| 6 | AssemblyAI | ASR + analysis | `ASSEMBLYAI_API_KEY` | best |
+| 7 | Deepgram | ASR | `DEEPGRAM_API_KEY` | nova-2 |
+| 8 | Groq | ASR (fast) | `GROQ_API_KEY` | whisper-large-v3-turbo |
+| 9 | Local Whisper | ASR (offline) | None | base |
 
-**Full video** = visual + audio analysis. **ASR** = audio transcription only.
+**Full video** = visual + audio analysis. **Frames + ASR** = extracted screenshots + audio transcription (free, offline). **ASR** = audio transcription only.
 
 ## CLI Options
 
@@ -84,6 +85,11 @@ python3 scripts/process_video.py --list-models
 **Local Whisper models:**
 - `tiny`, `base` (default), `small`, `medium`, `large`, `large-v3`
 
+**FFMPEG modes** (frame extraction strategy):
+- `scene` (default) - Extract frames when scene changes (smart, efficient)
+- `keyframe` - Extract I-frames only (fastest)
+- `interval` - Extract frames at regular intervals (predictable)
+
 ## Quick Reference
 
 | Task | Reference |
@@ -91,6 +97,7 @@ python3 scripts/process_video.py --list-models
 | **Setup & API keys** | [setup-guide.md](references/setup-guide.md) |
 | Use Gemini for video | [gemini.md](references/gemini.md) |
 | Use OpenRouter | [openrouter.md](references/openrouter.md) |
+| **FFMPEG frames (free)** | [ffmpeg-frames.md](references/ffmpeg-frames.md) |
 | ASR providers | [asr-providers.md](references/asr-providers.md) |
 | Output JSON schema | [output-format.md](references/output-format.md) |
 | Video sources & downloading | [video-sources.md](references/video-sources.md) |
